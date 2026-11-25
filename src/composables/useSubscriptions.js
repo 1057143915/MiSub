@@ -8,6 +8,7 @@ import { handleError } from '../utils/errorHandler.js';
 import { TIMING } from '../constants/timing.js';
 import { t } from '../i18n/index.js';
 import { getAirportIdentityKey } from '../utils/airport-identity.js';
+import { readPreference, writePreference } from '../utils/local-preference.js';
 
 const isDev = import.meta.env.DEV;
 
@@ -50,7 +51,31 @@ export function useSubscriptions(markDirty) {
     });
 
     const subsCurrentPage = ref(1);
-    const subsItemsPerPage = 6;
+
+    // 每页条数：持久化到本机偏好，-1 表示不分页（全部显示）。
+    // 默认值保持 6，与原行为一致，避免老用户界面突变。
+    const SUBS_PER_PAGE_KEY = 'misub.subscriptionsPerPage';
+    const DEFAULT_SUBS_PER_PAGE = 6;
+    const ALLOWED_SUBS_PER_PAGE = [6, 10, 20, 50, -1];
+
+    function readStoredSubsPerPage() {
+        return readPreference(
+            SUBS_PER_PAGE_KEY,
+            (value) => (ALLOWED_SUBS_PER_PAGE.includes(Number(value)) ? Number(value) : undefined),
+            DEFAULT_SUBS_PER_PAGE
+        );
+    }
+
+    const subsItemsPerPage = ref(readStoredSubsPerPage());
+    const subsPerPageOptions = ALLOWED_SUBS_PER_PAGE;
+
+    function setSubsItemsPerPage(value) {
+        const parsed = parseInt(value, 10);
+        if (!ALLOWED_SUBS_PER_PAGE.includes(parsed)) return;
+        subsItemsPerPage.value = parsed;
+        subsCurrentPage.value = 1;
+        writePreference(SUBS_PER_PAGE_KEY, parsed);
+    }
     const enabledSubscriptions = computed(() => subscriptions.value.filter((s) => s.enabled));
 
     /** 保持同一站点订阅相邻，避免分页后多个机场组交错出现。 */
@@ -91,12 +116,14 @@ export function useSubscriptions(markDirty) {
         }, 0);
     });
 
-    const subsTotalPages = computed(() =>
-        Math.ceil(orderedFilteredSubscriptions.value.length / subsItemsPerPage)
-    );
+    const subsTotalPages = computed(() => {
+        if (subsItemsPerPage.value === -1) return 1;
+        return Math.ceil(orderedFilteredSubscriptions.value.length / subsItemsPerPage.value);
+    });
     const paginatedSubscriptions = computed(() => {
-        const start = (subsCurrentPage.value - 1) * subsItemsPerPage;
-        const end = start + subsItemsPerPage;
+        if (subsItemsPerPage.value === -1) return orderedFilteredSubscriptions.value;
+        const start = (subsCurrentPage.value - 1) * subsItemsPerPage.value;
+        const end = start + subsItemsPerPage.value;
         return orderedFilteredSubscriptions.value.slice(start, end);
     });
 
@@ -539,6 +566,9 @@ export function useSubscriptions(markDirty) {
         subsCurrentPage,
         subsTotalPages,
         paginatedSubscriptions,
+        subsItemsPerPage,
+        subsPerPageOptions,
+        setSubsItemsPerPage,
         totalRemainingTraffic,
         enabledSubscriptionsCount: computed(() => enabledSubscriptions.value.length),
         changeSubsPage,

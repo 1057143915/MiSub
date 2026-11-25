@@ -38,6 +38,9 @@
         subsCurrentPage,
         subsTotalPages,
         paginatedSubscriptions,
+        subsItemsPerPage,
+        subsPerPageOptions,
+        setSubsItemsPerPage,
         changeSubsPage,
         addSubscription,
         updateSubscription,
@@ -257,12 +260,15 @@
             :status-filter-label="statusFilterLabel"
             :current-page="subsCurrentPage"
             :total-pages="subsTotalPages"
+            :items-per-page="subsItemsPerPage"
+            :items-per-page-options="subsPerPageOptions"
             :is-sorting="isSortingSubs"
             searchable
             @clear-status-filter="clearStatusFilter"
             @add="handleAddSubscription"
             @delete="handleDeleteSubscriptionWithCleanup"
             @change-page="changeSubsPage"
+            @update:items-per-page="setSubsItemsPerPage"
             @update-node-count="handleUpdateNodeCount"
             @refresh-all="batchUpdateAllSubscriptions"
             @edit="(id) => handleEditSubscription(subscriptions.find((s) => s.id === id))"

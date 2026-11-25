@@ -24,6 +24,8 @@
         paginatedSubscriptions: Array,
         currentPage: Number,
         totalPages: Number,
+        itemsPerPage: { type: Number, default: 6 },
+        itemsPerPageOptions: { type: Array, default: () => [6, 10, 20, 50, -1] },
         isSorting: Boolean,
         searchable: { type: Boolean, default: false },
         searchQuery: { type: String, default: '' },
@@ -43,6 +45,7 @@
         'add',
         'delete',
         'changePage',
+        'update:itemsPerPage',
         'updateNodeCount',
         'edit',
         'toggleSort',
@@ -68,6 +71,14 @@
     });
 
     const visibleCount = computed(() => props.filteredCount ?? props.subscriptions.length);
+
+    // 每页条数选择器的显示条件：
+    // 1) 订阅总数超过默认每页 6 条时，用户需要它来调整；
+    // 2) 当前每页值不是默认 6 时，必须保留入口让用户能改回去（否则选「全部」后永远看不到下拉）。
+    const DEFAULT_ITEMS_PER_PAGE = 6;
+    const showPerPageSelector = computed(
+        () => visibleCount.value > DEFAULT_ITEMS_PER_PAGE || props.itemsPerPage !== DEFAULT_ITEMS_PER_PAGE
+    );
     const refreshTime = computed(() => {
         if (!props.lastRefreshAt) return '';
         const date = new Date(props.lastRefreshAt);
@@ -88,6 +99,7 @@
     const handleQRCode = (id) => emit('qrcode', id);
     const handleAdd = () => emit('add');
     const handleChangePage = (page) => emit('changePage', page);
+    const handleChangeItemsPerPage = (value) => emit('update:itemsPerPage', value);
     const handleToggleSort = () => emit('toggleSort');
     const handleSortEnd = () => emit('markDirty');
     const handleDeleteAll = () => emit('deleteAll');
@@ -708,14 +720,19 @@
                 </button>
             </div>
         </div>
-        <div v-if="!isSorting && totalPages > 1" class="mt-4">
+        <div v-if="!isSorting && (totalPages > 1 || showPerPageSelector)" class="mt-4">
             <PanelPagination
                 variant="panel"
                 :current-page="currentPage"
                 :total-pages="totalPages"
                 :total-items="visibleCount"
+                :items-per-page="itemsPerPage"
+                :items-per-page-options="itemsPerPageOptions"
                 :show-total-items="true"
+                show-items-per-page
+                :hide-when-single-page="false"
                 @change-page="handleChangePage"
+                @update:items-per-page="handleChangeItemsPerPage"
             />
         </div>
         <Modal
